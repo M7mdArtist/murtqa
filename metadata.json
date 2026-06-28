@@ -1,0 +1,6 @@
+{
+  "name": "مُرْتَقَى",
+  "description": "منصة تسميع ومراجعة القرآن الكريم لمساعدة الحفاظ على اختبار وتثبيت حفظهم باستخدام تقنية الحجب الذكي للآيات والتسميع المسموع.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
