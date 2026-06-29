@@ -35,4 +35,5 @@ export interface TestSettings {
   mode: 'sequential' | 'random' | 'reciter';
   includeBismillah: boolean;
   audioReciter: string;
+  isChallengeMode?: boolean; // New field for Random mode challenge
 }

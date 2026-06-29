@@ -21,7 +21,8 @@ import {
   ClipboardCheck,
   Mic,
   Award,
-  Check
+  Check,
+  BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -116,7 +117,8 @@ export default function RevisionDashboard({
     wordsToShow: 3,
     mode: initialMode,
     includeBismillah: false,
-    audioReciter: 'ar.alafasy'
+    audioReciter: 'ar.alafasy',
+    isChallengeMode: false
   });
 
   // Reciter mode specific state
@@ -129,6 +131,7 @@ export default function RevisionDashboard({
   // Random mode custom quiz states
   const [randomQuestionLimit, setRandomQuestionLimit] = useState<number | 'open'>('open');
   const [testCompleted, setTestCompleted] = useState(false);
+  const [showPageContext, setShowPageContext] = useState(false);
 
   // Reciter mode timer effect
   useEffect(() => {
@@ -424,7 +427,17 @@ export default function RevisionDashboard({
   // Compute the starting words
   const startingWords = (() => {
     const words = cleanText.split(/\s+/);
-    const count = Math.min(settings.wordsToShow, words.length);
+    
+    // Check if Challenge mode is active in random mode
+    const isChallengeActive = settings.mode === 'random' && settings.isChallengeMode;
+    const currentStatus = userProgress[currentAyah.numberInSurah] || 'none';
+    const isMastered = currentStatus === 'mastered';
+    
+    // If challenge mode is active and this verse is mastered, hide 100% of words (effective count = 0)
+    // Otherwise show the normal count of words to show
+    const effectiveWordsToShow = (isChallengeActive && isMastered) ? 0 : settings.wordsToShow;
+    
+    const count = Math.min(effectiveWordsToShow, words.length);
     const head = words.slice(0, count).join(' ');
     const tail = words.slice(count).join(' ');
     return { head, tail };
@@ -979,6 +992,27 @@ export default function RevisionDashboard({
               </motion.div>
             )}
 
+            {/* Challenge Mode Indicator */}
+            {settings.mode === 'random' && settings.isChallengeMode && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex justify-center"
+              >
+                {currentAyahStatus === 'mastered' ? (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200/40 px-4 py-1.5 rounded-full shadow-sm">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                    وضع التحدي: الآية محجوبة 100٪ تلقائياً لأنها متقنة سابقاً 🔒
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/40 px-4 py-1.5 rounded-full shadow-sm">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />
+                    وضع التحدي: الآية ظاهرة جزئياً لمساعدتك على تذكرها 🔓
+                  </span>
+                )}
+              </motion.div>
+            )}
+
             {/* Core Ayah Text */}
             <div className="w-full space-y-8 select-none">
               
@@ -987,10 +1021,12 @@ export default function RevisionDashboard({
                 className="text-3xl md:text-4xl text-emerald-950 tracking-wide font-medium text-center px-4"
                 style={{ fontFamily: "'Amiri', serif", direction: 'rtl', lineHeight: '2.5' }}
               >
-                {/* Highlight starting words */}
-                <span className="text-emerald-800 font-bold drop-shadow-[0_1px_1px_rgba(4,120,87,0.05)] border-b-2 border-emerald-200 pb-1 me-2 inline-block">
-                  {startingWords.head}
-                </span>
+                {/* Highlight starting words if they exist */}
+                {startingWords.head && (
+                  <span className="text-emerald-800 font-bold drop-shadow-[0_1px_1px_rgba(4,120,87,0.05)] border-b-2 border-emerald-200 pb-1 me-2 inline-block">
+                    {startingWords.head}
+                  </span>
+                )}
                 
                 {/* Blur/Hide remaining words unless revealed */}
                 <AnimatePresence mode="wait">
@@ -1183,11 +1219,23 @@ export default function RevisionDashboard({
             {/* Core Reveal Button */}
             <button
               onClick={() => setRevealed(!revealed)}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-sm hover:shadow transition-all flex items-center gap-2 active:scale-95"
+              className="bg-emerald-700 hover:bg-emerald-800 text-white px-6 py-3 rounded-2xl font-bold text-sm shadow-sm hover:shadow transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
             >
               <Eye className="w-4 h-4" />
               {revealed ? 'إخفاء التكملة' : 'كشف باقي الآية'}
             </button>
+
+            {/* Show Page Button */}
+            {settings.mode === 'random' && (
+              <button
+                onClick={() => setShowPageContext(true)}
+                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/60 px-5 py-3 rounded-2xl font-bold text-sm shadow-sm transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                title="إظهار باقي الصفحة لمعرفة سياق وموقع الآية"
+              >
+                <BookOpen className="w-4.5 h-4.5 text-emerald-700" />
+                <span>إظهار باقي الصفحة</span>
+              </button>
+            )}
           </div>
 
           {/* Right: Previous / Next navigators */}
@@ -1322,40 +1370,70 @@ export default function RevisionDashboard({
 
               {/* Setting: Random Test Question Count (Show only if random mode selected) */}
               {settings.mode === 'random' && (
-                <div className="space-y-2 p-3 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
-                  <label className="text-sm font-semibold text-emerald-950 block">عدد أسئلة الاختبار العشوائي</label>
-                  <div className="grid grid-cols-5 gap-1">
-                    {(['open', 5, 10, 15, 20] as const).map((opt) => {
-                      const isSelected = randomQuestionLimit === opt;
-                      const label = opt === 'open' ? 'مفتوح' : `${opt}`;
-                      return (
-                        <button
-                          key={opt}
-                          type="button"
-                          onClick={() => {
-                            setRandomQuestionLimit(opt);
-                            const maxQ = opt === 'open' ? surah.ayahs.length : opt;
-                            if (randomHistory.length < maxQ) {
-                              setTestCompleted(false);
-                            } else {
-                              setTestCompleted(true);
-                            }
-                          }}
-                          className={`text-center py-2 text-xs font-bold rounded-lg transition-all border ${
-                            isSelected
-                              ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
-                              : 'bg-white text-emerald-800 border-emerald-100 hover:bg-emerald-100/40'
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
+                <>
+                  <div className="space-y-2 p-3 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
+                    <label className="text-sm font-semibold text-emerald-950 block">عدد أسئلة الاختبار العشوائي</label>
+                    <div className="grid grid-cols-5 gap-1">
+                      {(['open', 5, 10, 15, 20] as const).map((opt) => {
+                        const isSelected = randomQuestionLimit === opt;
+                        const label = opt === 'open' ? 'مفتوح' : `${opt}`;
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            onClick={() => {
+                              setRandomQuestionLimit(opt);
+                              const maxQ = opt === 'open' ? surah.ayahs.length : opt;
+                              if (randomHistory.length < maxQ) {
+                                setTestCompleted(false);
+                              } else {
+                                setTestCompleted(true);
+                              }
+                            }}
+                            className={`text-center py-2 text-xs font-bold rounded-lg transition-all border ${
+                              isSelected
+                                ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                                : 'bg-white text-emerald-800 border-emerald-100 hover:bg-emerald-100/40'
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p className="text-[10px] text-emerald-800/60 font-medium">
+                      سيقوم التطبيق باختيار آيات عشوائية دون تكرار حتى تنتهي من عدد الأسئلة المحدد.
+                    </p>
                   </div>
-                  <p className="text-[10px] text-emerald-800/60 font-medium">
-                    سيقوم التطبيق باختيار آيات عشوائية دون تكرار حتى تنتهي من عدد الأسئلة المحدد.
-                  </p>
-                </div>
+
+                  {/* Setting: Challenge Mode Toggle */}
+                  <div className="space-y-2 p-3.5 bg-amber-50/30 rounded-xl border border-amber-100/40">
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setSettings((prev) => ({ ...prev, isChallengeMode: !prev.isChallengeMode }))}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                          settings.isChallengeMode ? 'bg-amber-600' : 'bg-slate-200'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                            settings.isChallengeMode ? '-translate-x-6' : '-translate-x-1'
+                          }`}
+                        />
+                      </button>
+                      <div className="text-right">
+                        <label className="text-sm font-semibold text-amber-950 flex items-center justify-end gap-1.5 cursor-pointer" onClick={() => setSettings((prev) => ({ ...prev, isChallengeMode: !prev.isChallengeMode }))}>
+                          <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+                          وضع التحدي العالي
+                        </label>
+                        <span className="text-[10px] text-amber-900/60 block font-medium">
+                          حجب الآيات المتقنة 100٪ وإظهار الجديدة جزئياً
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
               )}
 
               {/* Setting: Audio Reciter Selection */}
@@ -1401,6 +1479,115 @@ export default function RevisionDashboard({
               >
                 تطبيق الإعدادات
               </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Quranic Page Context Modal */}
+      <AnimatePresence>
+        {showPageContext && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-emerald-950/95 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl border border-emerald-100/30 flex flex-col max-h-[85vh] relative text-right"
+              dir="rtl"
+            >
+              {/* Header */}
+              <div className="p-5 border-b border-emerald-50 dark:border-emerald-800/30 flex items-center justify-between bg-emerald-50/40 dark:bg-emerald-900/30">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-300 rounded-xl">
+                    <BookOpen className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-emerald-950 dark:text-white">
+                      الصفحة {currentAyah.page} - سورة {surah.name}
+                    </h3>
+                    <p className="text-[10px] md:text-xs text-slate-500 dark:text-emerald-300">
+                      موقع الآية الحالية وسياقها في هذه الصفحة من المصحف الشريف
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowPageContext(false)}
+                  className="p-1.5 hover:bg-slate-100 dark:hover:bg-emerald-900 rounded-xl transition-colors cursor-pointer text-slate-400 hover:text-slate-600 dark:hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Page Content Area */}
+              <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6">
+                {/* Visual Quran Page Manuscript container */}
+                <div className="bg-[#FAF8F5] dark:bg-[#1C2C24] p-6 md:p-8 rounded-2xl border border-[#EBE4D8] dark:border-emerald-800/50 shadow-inner relative min-h-[250px] flex flex-col justify-center">
+                  
+                  {/* Decorative Border */}
+                  <div className="absolute inset-2 border border-[#E2D8C5] dark:border-emerald-800/20 rounded-xl pointer-events-none" />
+                  
+                  {/* Surah Banner if page contains the start of the surah */}
+                  {surah.ayahs.filter(a => a.page === currentAyah.page && a.numberInSurah === 1).length > 0 && (
+                    <div className="w-full text-center py-2 px-4 mb-4 border-2 border-amber-900/20 dark:border-amber-500/20 bg-amber-50/40 dark:bg-emerald-900/40 rounded-lg relative z-10 font-bold text-amber-950 dark:text-amber-200" style={{ fontFamily: "'Amiri', serif" }}>
+                      سُورَةُ {surah.name}
+                    </div>
+                  )}
+
+                  {/* Flowing Text of Page */}
+                  <div 
+                    className="text-2xl md:text-3xl text-stone-800 dark:text-stone-100 text-center leading-[2.5] relative z-10"
+                    style={{ fontFamily: "'Amiri', serif", direction: 'rtl' }}
+                  >
+                    {surah.ayahs
+                      .filter(ayah => ayah.page === currentAyah.page)
+                      .map((ayah) => {
+                        const isCurrent = ayah.numberInSurah === currentAyah.numberInSurah;
+                        const { cleanText } = processAyahText(ayah.text, surah.number, ayah.numberInSurah);
+                        
+                        return (
+                          <span key={ayah.number} className="inline">
+                            {isCurrent ? (
+                              <span className="relative inline-block mx-1.5 my-1 px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-900/80 text-emerald-950 dark:text-emerald-50 rounded-xl border border-emerald-300 dark:border-emerald-700 font-bold shadow-sm shadow-emerald-700/10 scale-105 transition-all">
+                                {cleanText}
+                                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-amber-500 dark:bg-amber-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full whitespace-nowrap shadow-sm">
+                                  الآية المطلوبة 🎯
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="opacity-75 hover:opacity-100 transition-opacity">
+                                {cleanText}
+                              </span>
+                            )}
+                            
+                            {/* Ayah End Badge ﴿١﴾ */}
+                            <span className="inline-block mx-1 font-mono text-xs md:text-sm text-emerald-800 dark:text-emerald-400 select-none font-bold">
+                              ﴿{ayah.numberInSurah}﴾
+                            </span>
+                          </span>
+                        );
+                      })}
+                  </div>
+
+                </div>
+
+                {/* Info and Tips */}
+                <div className="bg-emerald-50/50 dark:bg-emerald-900/10 p-4 rounded-xl border border-emerald-100/50 dark:border-emerald-800/30 flex items-start gap-2.5 text-right">
+                  <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-emerald-950 dark:text-emerald-200 leading-relaxed">
+                    يساعدك عرض الصفحة كاملة على ترسيخ الحفظ البصري وربط بدايات الآيات ونهاياتها، مما يمنع النسيان أو الارتباك أثناء التسميع.
+                  </p>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-emerald-50 dark:border-emerald-800/30 flex items-center justify-end bg-emerald-50/20 dark:bg-emerald-900/10">
+                <button
+                  onClick={() => setShowPageContext(false)}
+                  className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-700/10 transition-all active:scale-95 cursor-pointer"
+                >
+                  حسناً، فهمت
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
