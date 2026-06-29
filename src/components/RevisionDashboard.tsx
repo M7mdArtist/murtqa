@@ -125,6 +125,10 @@ export default function RevisionDashboard({
   const [mistakenAyahs, setMistakenAyahs] = useState<{ [ayahNumberInSurah: number]: boolean }>({});
   const [isAuditMode, setIsAuditMode] = useState(false);
   const [mistakenWords, setMistakenWords] = useState<{ [ayahNumberInSurah: number]: { [wordIndex: number]: boolean } }>({});
+  
+  // Random mode custom quiz states
+  const [randomQuestionLimit, setRandomQuestionLimit] = useState<number | 'open'>('open');
+  const [testCompleted, setTestCompleted] = useState(false);
 
   // Reciter mode timer effect
   useEffect(() => {
@@ -492,13 +496,39 @@ export default function RevisionDashboard({
     }
   };
 
-  const selectRandomIndex = () => {
-    if (surah.ayahs.length <= 1) return 0;
-    let nextIndex;
-    do {
-      nextIndex = Math.floor(Math.random() * surah.ayahs.length);
-    } while (nextIndex === currentIndex && surah.ayahs.length > 1);
-    return nextIndex;
+  const selectRandomIndexWithoutRepeating = (currentHist: number[]) => {
+    const totalAyahs = surah.ayahs.length;
+    if (totalAyahs <= 0) return 0;
+    if (totalAyahs === 1) return 0;
+    
+    // Find all indices that have not been visited
+    const unvisitedIndices: number[] = [];
+    for (let i = 0; i < totalAyahs; i++) {
+      if (!currentHist.includes(i)) {
+        unvisitedIndices.push(i);
+      }
+    }
+
+    if (unvisitedIndices.length === 0) {
+      return -1; // All visited
+    }
+
+    // Pick a random index from the unvisited ones
+    const randomIndex = Math.floor(Math.random() * unvisitedIndices.length);
+    return unvisitedIndices[randomIndex];
+  };
+
+  const handleRestartTest = () => {
+    setTestCompleted(false);
+    if (settings.mode === 'random') {
+      const initialRandIndex = selectRandomIndexWithoutRepeating([]);
+      setRandomHistory([initialRandIndex]);
+      setHistoryPointer(0);
+      setCurrentIndex(initialRandIndex);
+    } else {
+      setCurrentIndex(0);
+    }
+    setRevealed(false);
   };
 
   const handleNext = () => {
@@ -513,7 +543,19 @@ export default function RevisionDashboard({
         setHistoryPointer(nextPointer);
         setCurrentIndex(randomHistory[nextPointer]);
       } else {
-        const nextIndex = selectRandomIndex();
+        const maxQuestions = randomQuestionLimit === 'open' ? surah.ayahs.length : Math.min(randomQuestionLimit, surah.ayahs.length);
+        if (randomHistory.length >= maxQuestions) {
+          setTestCompleted(true);
+          return;
+        }
+
+        const nextIndex = selectRandomIndexWithoutRepeating(randomHistory);
+        if (nextIndex === -1) {
+          // No more unique ayahs left
+          setTestCompleted(true);
+          return;
+        }
+
         const newHistory = [...randomHistory, nextIndex];
         setRandomHistory(newHistory);
         setHistoryPointer(newHistory.length - 1);
@@ -552,8 +594,9 @@ export default function RevisionDashboard({
   // Switch between Sequential, Random, and Reciter modes
   const handleModeChange = (mode: 'sequential' | 'random' | 'reciter') => {
     setSettings((prev) => ({ ...prev, mode }));
+    setTestCompleted(false);
     if (mode === 'random') {
-      const initialRandIndex = selectRandomIndex();
+      const initialRandIndex = selectRandomIndexWithoutRepeating([]);
       setRandomHistory([initialRandIndex]);
       setHistoryPointer(0);
       setCurrentIndex(initialRandIndex);
@@ -827,32 +870,99 @@ export default function RevisionDashboard({
           {/* Background watermark/art */}
           <div className="absolute inset-0 bg-[radial-gradient(#047857_0.4px,transparent_0.4px)] [background-size:16px_16px] opacity-[0.03] pointer-events-none" />
 
-          {/* Card Header: Ayah Details & Status Pill */}
-          <div className="flex items-center justify-between relative z-10 border-b border-emerald-50 pb-5 mb-6">
-            <div className="flex items-center gap-2">
-              {currentAyahStatus === 'mastered' && (
-                <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  متقن
-                </span>
-              )}
-              {currentAyahStatus === 'needs_practice' && (
-                <span className="flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                  بحاجة لمراجعة
-                </span>
-              )}
-              {currentAyahStatus === 'none' && (
-                <span className="flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-full">
-                  غير محدّد
-                </span>
-              )}
-            </div>
+          {testCompleted ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex-1 flex flex-col items-center justify-center text-center space-y-6 py-8 relative z-10"
+            >
+              <div className="w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-400">
+                <Award className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-2xl font-bold text-emerald-950 dark:text-white">لقد أتممت الاختبار العشوائي بنجاح! ✨</h3>
+                <p className="text-sm text-slate-500 dark:text-emerald-300 max-w-md mx-auto">
+                  لقد راجعت بنجاح {randomHistory.length} آية عشوائية من سورة {surah.name} دون تكرار للآيات.
+                </p>
+              </div>
 
-            <div className="text-right font-mono text-sm text-emerald-800/80 font-bold bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-100/40">
-              الآية {currentAyah.numberInSurah} من {surah.numberOfAyahs}
-            </div>
-          </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-4">
+                <button
+                  onClick={handleRestartTest}
+                  className="px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm rounded-xl shadow-md shadow-emerald-700/10 transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  إعادة الاختبار
+                </button>
+                <button
+                  onClick={onBack}
+                  className="px-6 py-3 bg-slate-100 dark:bg-emerald-800 dark:text-white dark:hover:bg-emerald-700 hover:bg-slate-200 text-slate-700 font-bold text-sm rounded-xl transition-all active:scale-95 cursor-pointer"
+                >
+                  العودة للمصحف
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <>
+              {/* Card Header: Ayah Details & Status Pill */}
+              <div className="flex items-center justify-between relative z-10 border-b border-emerald-50 pb-5 mb-6">
+                <div className="flex items-center gap-2">
+                  {settings.mode === 'random' ? (
+                    <div className="flex items-center gap-1.5 bg-emerald-50/50 p-1 rounded-xl border border-emerald-100/30">
+                      <span className="text-[10px] font-bold text-emerald-800 px-1">عدد الأسئلة:</span>
+                      <select
+                        value={randomQuestionLimit}
+                        onChange={(e) => {
+                          const val = e.target.value === 'open' ? 'open' : parseInt(e.target.value);
+                          setRandomQuestionLimit(val);
+                          const maxQ = val === 'open' ? surah.ayahs.length : val;
+                          if (randomHistory.length < maxQ) {
+                            setTestCompleted(false);
+                          } else {
+                            setTestCompleted(true);
+                          }
+                        }}
+                        className="bg-white text-emerald-950 text-[11px] font-bold py-1 px-2 rounded-lg border border-emerald-100 focus:outline-none focus:ring-1 focus:ring-emerald-700/20"
+                      >
+                        <option value="open">حد مفتوح</option>
+                        <option value="5">5 أسئلة</option>
+                        <option value="10">10 أسئلة</option>
+                        <option value="15">15 سؤالاً</option>
+                        <option value="20">20 سؤالاً</option>
+                        <option value="30">30 سؤالاً</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <>
+                      {currentAyahStatus === 'mastered' && (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          متقن
+                        </span>
+                      )}
+                      {currentAyahStatus === 'needs_practice' && (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                          بحاجة لمراجعة
+                        </span>
+                      )}
+                      {currentAyahStatus === 'none' && (
+                        <span className="flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-full">
+                          غير محدّد
+                        </span>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                <div className="text-right font-mono text-xs md:text-sm text-emerald-800/80 font-bold bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-100/40">
+                  {settings.mode === 'random' ? (
+                    `السؤال ${historyPointer + 1} من ${randomQuestionLimit === 'open' ? surah.ayahs.length : Math.min(randomQuestionLimit, surah.ayahs.length)}`
+                  ) : (
+                    `الآية ${currentAyah.numberInSurah} من ${surah.numberOfAyahs}`
+                  )}
+                </div>
+              </div>
 
           {/* Card Content: Quranic Verses Display */}
           <div className="flex-1 flex flex-col justify-center items-center text-center space-y-6 my-4 relative z-10">
@@ -1107,6 +1217,8 @@ export default function RevisionDashboard({
           </div>
 
         </div>
+        </>
+      )}
 
       </div>
       )}
@@ -1207,6 +1319,44 @@ export default function RevisionDashboard({
                   </button>
                 </div>
               </div>
+
+              {/* Setting: Random Test Question Count (Show only if random mode selected) */}
+              {settings.mode === 'random' && (
+                <div className="space-y-2 p-3 bg-emerald-50/50 rounded-xl border border-emerald-100/50">
+                  <label className="text-sm font-semibold text-emerald-950 block">عدد أسئلة الاختبار العشوائي</label>
+                  <div className="grid grid-cols-5 gap-1">
+                    {(['open', 5, 10, 15, 20] as const).map((opt) => {
+                      const isSelected = randomQuestionLimit === opt;
+                      const label = opt === 'open' ? 'مفتوح' : `${opt}`;
+                      return (
+                        <button
+                          key={opt}
+                          type="button"
+                          onClick={() => {
+                            setRandomQuestionLimit(opt);
+                            const maxQ = opt === 'open' ? surah.ayahs.length : opt;
+                            if (randomHistory.length < maxQ) {
+                              setTestCompleted(false);
+                            } else {
+                              setTestCompleted(true);
+                            }
+                          }}
+                          className={`text-center py-2 text-xs font-bold rounded-lg transition-all border ${
+                            isSelected
+                              ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                              : 'bg-white text-emerald-800 border-emerald-100 hover:bg-emerald-100/40'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-emerald-800/60 font-medium">
+                    سيقوم التطبيق باختيار آيات عشوائية دون تكرار حتى تنتهي من عدد الأسئلة المحدد.
+                  </p>
+                </div>
+              )}
 
               {/* Setting: Audio Reciter Selection */}
               <div className="space-y-2">
