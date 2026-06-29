@@ -102,6 +102,9 @@ export default function ProgressStats({ surahs, userProgress, onJumpToAyah }: Pr
         <div className="absolute bottom-0 right-0 w-32 h-32 bg-emerald-700/20 rounded-full blur-3xl translate-x-1/3 translate-y-1/3" />
         
         <Award className="w-8 h-8 text-amber-400 mx-auto opacity-90 animate-bounce" />
+        <p className="text-sm md:text-base text-amber-300 font-bold" style={{ fontFamily: "'Amiri', serif" }}>
+          قال رسول الله ﷺ:
+        </p>
         <h3 className="text-xl md:text-2xl font-sans font-bold leading-relaxed max-w-2xl mx-auto italic" style={{ fontFamily: "'Amiri', serif" }}>
           {encouragement.quote}
         </h3>

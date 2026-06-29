@@ -304,7 +304,10 @@ export default function App() {
         </main>
 
         {/* Footer */}
-        <footer className="pt-8 border-t border-emerald-100/40 text-center space-y-2">
+        <footer className="pt-8 border-t border-emerald-100/40 text-center space-y-3 pb-8">
+          <p className="text-xs md:text-sm text-emerald-800/60 dark:text-emerald-300/60 leading-relaxed max-w-xl mx-auto font-medium">
+            مُرْتقى أداة تم صنعها عن طريق الذكاء الاصطناعي لمساعدة حفظة كتاب الله مراجعة وتعزيز حفظهم ولمساعدة كل من يريد حفظ كتاب الله.
+          </p>
           <div className="flex justify-center items-center gap-1 text-xs text-emerald-800/40 font-medium">
             <span>مُرتَقَى © 2026</span>
             <span>•</span>
