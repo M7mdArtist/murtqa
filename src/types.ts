@@ -32,7 +32,7 @@ export type AppView = 'home' | 'test' | 'stats';
 
 export interface TestSettings {
   wordsToShow: number; // Number of words to show at the beginning of the ayah (default 3)
-  mode: 'sequential' | 'random';
+  mode: 'sequential' | 'random' | 'reciter';
   includeBismillah: boolean;
   audioReciter: string;
 }

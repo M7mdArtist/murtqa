@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Surah, UserProgress, MemorizationStatus } from '../types';
-import { Search, BookOpen, Sparkles, Star, CheckCircle, HelpCircle } from 'lucide-react';
+import { Search, BookOpen, Sparkles, Star, CheckCircle, HelpCircle, Volume2, Mic } from 'lucide-react';
 import { motion } from 'motion/react';
 
 function normalizeArabicText(text: string): string {
@@ -25,7 +25,7 @@ function normalizeArabicText(text: string): string {
 interface SurahSelectorProps {
   surahs: Surah[];
   userProgress: UserProgress;
-  onSelectSurah: (surahNumber: number, mode: 'sequential' | 'random') => void;
+  onSelectSurah: (surahNumber: number, mode: 'sequential' | 'random' | 'reciter') => void;
 }
 
 export default function SurahSelector({ surahs, userProgress, onSelectSurah }: SurahSelectorProps) {
@@ -296,20 +296,29 @@ export default function SurahSelector({ surahs, userProgress, onSelectSurah }: S
                 </div>
 
                 {/* Bottom portion: Actions */}
-                <div className="mt-4 pt-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                <div className="mt-4 pt-3 flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onSelectSurah(surah.number, 'sequential')}
+                      className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-[11px] py-2 rounded-xl border border-emerald-700 transition-all flex items-center justify-center gap-1 shadow-sm active:scale-95 cursor-pointer"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      تسميع متتالي
+                    </button>
+                    <button
+                      onClick={() => onSelectSurah(surah.number, 'random')}
+                      className="flex-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 hover:border-emerald-300 font-semibold text-[11px] py-2 rounded-xl transition-all flex items-center justify-center gap-1 active:scale-95 cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      اختبار عشوائي
+                    </button>
+                  </div>
                   <button
-                    onClick={() => onSelectSurah(surah.number, 'sequential')}
-                    className="flex-1 bg-emerald-700 hover:bg-emerald-800 text-white font-medium text-xs py-2 rounded-xl border border-emerald-700 transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-700/10 active:scale-95"
+                    onClick={() => onSelectSurah(surah.number, 'reciter')}
+                    className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs py-2 rounded-xl border border-amber-500 transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm cursor-pointer"
                   >
-                    <BookOpen className="w-3.5 h-3.5" />
-                    مراجعة متتالية
-                  </button>
-                  <button
-                    onClick={() => onSelectSurah(surah.number, 'random')}
-                    className="flex-1 bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200 hover:border-emerald-300 font-medium text-xs py-2 rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    اختبار عشوائي
+                    <Mic className="w-3.5 h-3.5" />
+                    وضع المُسَمِّع (كامل السورة + كشف الأخطاء)
                   </button>
                 </div>
               </motion.div>

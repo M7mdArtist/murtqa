@@ -4,7 +4,7 @@ import { fetchSurahs, fetchSurahDetail } from './api';
 import SurahSelector from './components/SurahSelector';
 import RevisionDashboard from './components/RevisionDashboard';
 import ProgressStats from './components/ProgressStats';
-import { BookOpen, BarChart3, Heart, Award, Sparkles, RefreshCw } from 'lucide-react';
+import { BookOpen, BarChart3, Heart, Award, Sparkles, RefreshCw, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 const LOCAL_STORAGE_KEY = 'murtaqa_quran_progress_v1';
@@ -13,11 +13,28 @@ export default function App() {
   const [surahs, setSurahs] = useState<Surah[]>([]);
   const [userProgress, setUserProgress] = useState<UserProgress>({});
   
+  // Theme state
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('murtaqa_dark_mode_v1');
+    return saved === 'true';
+  });
+
+  // Sync theme with document class
+  useEffect(() => {
+    localStorage.setItem('murtaqa_dark_mode_v1', String(isDarkMode));
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
   // Navigation & test states
   const [currentView, setCurrentView] = useState<AppView>('home');
   const [selectedSurahNumber, setSelectedSurahNumber] = useState<number | null>(null);
   const [selectedSurahDetail, setSelectedSurahDetail] = useState<SurahDetail | null>(null);
-  const [testMode, setTestMode] = useState<'sequential' | 'random'>('sequential');
+  const [testMode, setTestMode] = useState<'sequential' | 'random' | 'reciter'>('sequential');
   const [initialAyahNumber, setInitialAyahNumber] = useState<number | undefined>(undefined);
 
   // Loading & error states
@@ -56,7 +73,7 @@ export default function App() {
   }, []);
 
   // 2. Fetch Surah details when a Surah is selected
-  const handleSelectSurah = async (surahNumber: number, mode: 'sequential' | 'random' = 'sequential', startingAyah?: number) => {
+  const handleSelectSurah = async (surahNumber: number, mode: 'sequential' | 'random' | 'reciter' = 'sequential', startingAyah?: number) => {
     try {
       setLoadingDetail(true);
       setError(null);
@@ -142,28 +159,43 @@ export default function App() {
             </div>
 
             {/* View Tabs Selector */}
-            <div className="flex bg-emerald-50 border border-emerald-100 p-1.5 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex bg-emerald-50 border border-emerald-100 p-1.5 rounded-2xl shadow-sm">
+                <button
+                  onClick={() => { setCurrentView('home'); handleBackToSelector(); }}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    currentView === 'home'
+                      ? 'bg-emerald-700 text-white shadow-md shadow-emerald-700/10'
+                      : 'text-emerald-800 hover:bg-emerald-100/50'
+                  }`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  المصحف والمراجعة
+                </button>
+                <button
+                  onClick={() => { setCurrentView('stats'); handleBackToSelector(); }}
+                  className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    currentView === 'stats'
+                      ? 'bg-emerald-700 text-white shadow-md shadow-emerald-700/10'
+                      : 'text-emerald-800 hover:bg-emerald-100/50'
+                  }`}
+                >
+                  <BarChart3 className="w-4 h-4" />
+                  لوحة الإنجاز والحفظ
+                </button>
+              </div>
+
+              {/* Header Dark Mode Toggle */}
               <button
-                onClick={() => { setCurrentView('home'); handleBackToSelector(); }}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  currentView === 'home'
-                    ? 'bg-emerald-700 text-white shadow-md shadow-emerald-700/10'
-                    : 'text-emerald-800 hover:bg-emerald-100/50'
-                }`}
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100 text-emerald-800 hover:bg-emerald-100/50 hover:text-emerald-950 transition-all active:scale-95 cursor-pointer shadow-sm flex items-center justify-center"
+                title={isDarkMode ? "الوضع النهاري" : "الوضع الليلي"}
               >
-                <BookOpen className="w-4 h-4" />
-                المصحف والمراجعة
-              </button>
-              <button
-                onClick={() => { setCurrentView('stats'); handleBackToSelector(); }}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                  currentView === 'stats'
-                    ? 'bg-emerald-700 text-white shadow-md shadow-emerald-700/10'
-                    : 'text-emerald-800 hover:bg-emerald-100/50'
-                }`}
-              >
-                <BarChart3 className="w-4 h-4" />
-                لوحة الإنجاز والحفظ
+                {isDarkMode ? (
+                  <Sun className="w-5 h-5 text-amber-500 animate-pulse" />
+                ) : (
+                  <Moon className="w-5 h-5" />
+                )}
               </button>
             </div>
           </header>
@@ -284,6 +316,21 @@ export default function App() {
         </footer>
 
       </div>
+
+      {/* Floating Dark Mode Toggle Button (Accessible during tests) */}
+      <button
+        onClick={() => setIsDarkMode(!isDarkMode)}
+        className="fixed bottom-6 left-6 z-50 p-3.5 rounded-full shadow-lg border transition-all active:scale-95 cursor-pointer flex items-center justify-center bg-white dark:bg-emerald-900 border-emerald-100 dark:border-emerald-800 text-emerald-800 dark:text-amber-400 hover:shadow-xl hover:-translate-y-0.5"
+        title={isDarkMode ? "الوضع النهاري" : "الوضع الليلي"}
+        id="floating-theme-toggle"
+      >
+        {isDarkMode ? (
+          <Sun className="w-5.5 h-5.5 text-amber-500 animate-pulse" />
+        ) : (
+          <Moon className="w-5.5 h-5.5 text-emerald-800" />
+        )}
+      </button>
+
     </div>
   );
 }

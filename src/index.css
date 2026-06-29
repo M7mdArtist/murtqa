@@ -9,6 +9,233 @@ body {
   background-color: #fcfbf7; /* Warm spiritual off-white cream background */
   font-family: var(--font-sans);
   color: #022c22; /* Emerald 950 */
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* --- Dark Mode Configuration & Overrides --- */
+
+.dark body {
+  background-color: #091210 !important; /* Deep spiritual green-black background */
+  color: #e2f1ee !important;
+}
+
+/* Page structural elements */
+.dark #app-root {
+  background-color: #091210 !important;
+}
+
+/* Custom floating toggle button style */
+.dark #floating-theme-toggle {
+  background-color: #122420 !important;
+  border-color: #24423a !important;
+  color: #fbbf24 !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Core Cards Override */
+.dark .bg-white,
+.dark .bg-white\/80,
+.dark .bg-white\/90,
+.dark .bg-white\/40,
+.dark .bg-\[\#fdfdfa\],
+.dark .bg-\[\#fdfdfc\] {
+  background-color: #11201b !important;
+  border-color: #1d3830 !important;
+  color: #e2f1ee !important;
+}
+
+.dark .hover\:bg-emerald-50\/5:hover {
+  background-color: #162b25 !important;
+}
+
+/* Text overrides */
+.dark .text-emerald-950,
+.dark .text-slate-800,
+.dark .text-slate-900,
+.dark .text-slate-950,
+.dark .text-slate-850 {
+  color: #eaf6f3 !important;
+}
+
+.dark .text-emerald-800,
+.dark .text-emerald-900,
+.dark .text-emerald-800\/80 {
+  color: #34d399 !important; /* Emerald active light text */
+}
+
+.dark .text-emerald-800\/60,
+.dark .text-emerald-800\/50,
+.dark .text-emerald-800\/70,
+.dark .text-emerald-800\/40,
+.dark .text-slate-500,
+.dark .text-slate-400 {
+  color: #83a59d !important; /* Soft muted gray-green */
+}
+
+/* Containers with emerald-50 colors (pills, headers, etc) */
+.dark .bg-emerald-50,
+.dark .bg-emerald-50\/50,
+.dark .bg-emerald-50\/30 {
+  background-color: #162d26 !important;
+  border-color: #24483d !important;
+  color: #34d399 !important;
+}
+
+/* Borders override */
+.dark .border-emerald-100,
+.dark .border-emerald-100\/50,
+.dark .border-emerald-100\/60,
+.dark .border-emerald-100\/40,
+.dark .border-emerald-100\/20,
+.dark .border-emerald-150,
+.dark .border-emerald-200 {
+  border-color: #24483d !important;
+}
+
+/* Standard button states & hovers */
+.dark .hover\:bg-emerald-50:hover,
+.dark .hover\:bg-emerald-100\/50:hover,
+.dark .hover\:bg-emerald-100/70:hover {
+  background-color: #1e3d33 !important;
+  color: #ffffff !important;
+}
+
+/* Search input field */
+.dark input[type="text"] {
+  background-color: #162d26 !important;
+  border-color: #24483d !important;
+  color: #ffffff !important;
+}
+
+.dark input[type="text"]::placeholder {
+  color: #557c72 !important;
+}
+
+/* Search field focus ring */
+.dark input[type="text"]:focus {
+  border-color: #34d399 !important;
+  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2) !important;
+}
+
+/* Status Cards & Mistake indicators */
+.dark .bg-amber-50,
+.dark .bg-amber-50\/40 {
+  background-color: #2d2411 !important;
+  border-color: #453716 !important;
+  color: #fbbf24 !important;
+}
+
+.dark .text-amber-700,
+.dark .text-amber-800,
+.dark .text-amber-900 {
+  color: #fbbf24 !important;
+}
+
+.dark .border-amber-100,
+.dark .border-amber-100\/50,
+.dark .border-amber-150,
+.dark .border-amber-200 {
+  border-color: #453716 !important;
+}
+
+.dark .bg-amber-100 {
+  background-color: #453716 !important;
+  color: #fbbf24 !important;
+}
+
+/* Mistake logs and active error markers */
+.dark .bg-red-50\/80,
+.dark .bg-red-50,
+.dark .hover\:bg-red-50:hover {
+  background-color: #3b1c1c !important;
+  border-color: #632525 !important;
+  color: #fca5a5 !important;
+}
+
+.dark .text-red-700,
+.dark .text-red-900,
+.dark .text-red-950 {
+  color: #fca5a5 !important;
+}
+
+.dark .bg-red-100 {
+  background-color: #5c1e1e !important;
+  color: #fca5a5 !important;
+}
+
+.dark .border-red-100,
+.dark .border-red-200 {
+  border-color: #632525 !important;
+}
+
+/* Mastered state override */
+.dark .bg-emerald-50 {
+  background-color: #122a21 !important;
+  border-color: #1e4537 !important;
+  color: #34d399 !important;
+}
+
+.dark .text-emerald-700 {
+  color: #34d399 !important;
+}
+
+/* Core Quranic Verses area: Text styling */
+.dark span.text-stone-800 {
+  color: #ffffff !important;
+}
+
+.dark span.text-stone-300 {
+  color: #2c4a41 !important; /* Elegant subtle dark-green blurred text placeholder */
+}
+
+.dark span.text-stone-300:hover {
+  color: #456d61 !important;
+}
+
+/* Bismillah texts */
+.dark .text-emerald-800[style*="Amiri"] {
+  color: #34d399 !important;
+}
+
+/* Audio Player and Bottom Control Bar overrides */
+.dark .fixed.bottom-0.left-0.right-0 {
+  background-color: #11201b !important;
+  border-color: #1d3830 !important;
+}
+
+/* Dialog backdrops and modal dialogs */
+.dark .bg-black\/50 {
+  background-color: rgba(5, 10, 8, 0.88) !important;
+}
+
+.dark .max-w-md.bg-white {
+  background-color: #11201b !important;
+  border-color: #1d3830 !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Keyboard hint buttons (kbd) */
+.dark kbd {
+  background-color: #162d26 !important;
+  border-color: #24483d !important;
+  color: #34d399 !important;
+}
+
+/* Progress Stats: Rule guidelines section card */
+.dark .bg-emerald-50\/50 {
+  background-color: #11201b !important;
+  border-color: #1d3830 !important;
+}
+
+/* Progress Stats: Hadith banner */
+.dark .bg-gradient-to-br.from-emerald-800.to-emerald-950 {
+  background-image: linear-gradient(to bottom right, #0e2920, #081411) !important;
+  border-color: #1a382d !important;
+}
+
+/* Scrollbar styling */
+.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #1e4a3d !important;
 }
 
 /* Custom scrollbar styling */

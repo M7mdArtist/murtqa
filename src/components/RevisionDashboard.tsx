@@ -15,7 +15,13 @@ import {
   Sparkles,
   Settings,
   X,
-  RotateCcw
+  RotateCcw,
+  Timer,
+  Printer,
+  ClipboardCheck,
+  Mic,
+  Award,
+  Check
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -78,7 +84,7 @@ interface RevisionDashboardProps {
   userProgress: { [ayahNumberInSurah: number]: MemorizationStatus };
   onUpdateStatus: (surahNumber: number, ayahNumberInSurah: number, status: MemorizationStatus) => void;
   onBack: () => void;
-  initialMode?: 'sequential' | 'random';
+  initialMode?: 'sequential' | 'random' | 'reciter';
   initialAyahNumber?: number;
 }
 
@@ -112,6 +118,293 @@ export default function RevisionDashboard({
     includeBismillah: false,
     audioReciter: 'ar.alafasy'
   });
+
+  // Reciter mode specific state
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [isTimerRunning, setIsTimerRunning] = useState(initialMode === 'reciter');
+  const [mistakenAyahs, setMistakenAyahs] = useState<{ [ayahNumberInSurah: number]: boolean }>({});
+  const [isAuditMode, setIsAuditMode] = useState(false);
+  const [mistakenWords, setMistakenWords] = useState<{ [ayahNumberInSurah: number]: { [wordIndex: number]: boolean } }>({});
+
+  // Reciter mode timer effect
+  useEffect(() => {
+    let interval: any = null;
+    if (isTimerRunning && settings.mode === 'reciter') {
+      interval = setInterval(() => {
+        setTimeElapsed(prev => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isTimerRunning, settings.mode]);
+
+  // Export PDF Handler
+  const handleExportPDF = () => {
+    // Create a new window
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('يرجى تفعيل النوافذ المنبثقة لتنزيل التقرير.');
+      return;
+    }
+
+    const today = new Date().toLocaleDateString('ar-SA', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const minutes = Math.floor(timeElapsed / 60);
+    const seconds = timeElapsed % 60;
+    const timeStr = `${minutes} دقيقة و ${seconds} ثانية`;
+
+    const mistakenAyahsList = surah.ayahs.filter(a => mistakenAyahs[a.numberInSurah]);
+
+    let ayahsHtml = '';
+    if (mistakenAyahsList.length === 0) {
+      ayahsHtml = `<div style="text-align: center; padding: 40px; color: #047857; font-size: 1.2rem; font-weight: bold;">
+        الحمد لله! لم يتم تسجيل أي أخطاء أثناء تسميع هذه السورة الكريمة. 🎉
+      </div>`;
+    } else {
+      mistakenAyahsList.forEach((ayah) => {
+        // Simple fallback parsing for text
+        const cleanText = ayah.text.replace(/[\u064B-\u0652]/g, '').replace(/^(بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ)/, '').trim();
+        const wordsFromText = cleanText.split(/\s+/);
+        const originalWords = ayah.text.split(/\s+/);
+        
+        // If Uthmanic words list matches split
+        const actualWordsToUse = originalWords.length === wordsFromText.length ? originalWords : wordsFromText;
+
+        let wordsHtml = '';
+        actualWordsToUse.forEach((word, wordIdx) => {
+          const isWordMistaken = mistakenWords[ayah.numberInSurah]?.[wordIdx];
+          if (isWordMistaken) {
+            wordsHtml += `<span style="color: #dc2626; text-decoration: underline double #dc2626; font-weight: bold; background-color: #fef2f2; padding: 2px 4px; border-radius: 4px; margin: 0 2px;">${word}</span> `;
+          } else {
+            wordsHtml += `<span style="color: #1e293b; margin: 0 2px;">${word}</span> `;
+          }
+        });
+
+        ayahsHtml += `
+          <div style="margin-bottom: 24px; padding: 18px; border-right: 4px solid #f59e0b; background-color: #fffbeb; border-radius: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.9rem; color: #78350f; font-family: sans-serif;">
+              <strong>الآية رقم ${ayah.numberInSurah}</strong>
+              <span style="background-color: #fef3c7; padding: 2px 8px; border-radius: 9999px; font-weight: bold;">بحاجة لتثبيت ⚠️</span>
+            </div>
+            <div style="font-family: 'Amiri', 'Traditional Arabic', serif; font-size: 1.6rem; line-height: 2.2; text-align: right; direction: rtl;">
+              ${wordsHtml}
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html dir="rtl" lang="ar">
+      <head>
+        <meta charset="UTF-8">
+        <title>تقرير تسميع سورة ${surah.name}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;700&display=swap');
+          
+          body {
+            font-family: 'Tajawal', sans-serif;
+            background-color: #ffffff;
+            color: #1e293b;
+            margin: 40px;
+            padding: 0;
+            direction: rtl;
+          }
+          
+          .certificate-container {
+            border: 4px double #047857;
+            border-radius: 16px;
+            padding: 30px;
+            position: relative;
+            background-color: #fdfdfc;
+          }
+
+          .certificate-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            font-size: 8rem;
+            color: rgba(4, 120, 87, 0.03);
+            font-family: 'Amiri', serif;
+            pointer-events: none;
+            white-space: nowrap;
+            z-index: 0;
+          }
+
+          .header {
+            text-align: center;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+            position: relative;
+            z-index: 10;
+          }
+
+          .logo-title {
+            font-family: 'Amiri', serif;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #047857;
+            margin: 0;
+          }
+
+          .subtitle {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin-top: 5px;
+            letter-spacing: 1px;
+          }
+
+          .report-title {
+            text-align: center;
+            font-size: 1.8rem;
+            color: #0f172a;
+            margin: 20px 0;
+            font-weight: bold;
+          }
+
+          .meta-grid {
+            display: grid;
+            grid-template-cols: 1fr 1fr;
+            gap: 16px;
+            background-color: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            font-size: 1rem;
+            position: relative;
+            z-index: 10;
+          }
+
+          .meta-item {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px dashed #e2e8f0;
+            padding-bottom: 8px;
+          }
+          .meta-item:last-child {
+            border-bottom: none;
+          }
+
+          .meta-label {
+            color: #475569;
+            font-weight: bold;
+          }
+
+          .meta-value {
+            color: #0f172a;
+            font-weight: bold;
+          }
+
+          .section-title {
+            font-size: 1.3rem;
+            color: #047857;
+            border-right: 4px solid #047857;
+            padding-right: 10px;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            font-weight: bold;
+          }
+
+          .footer-note {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 0.85rem;
+            color: #64748b;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 20px;
+          }
+
+          @media print {
+            body {
+              margin: 20px;
+            }
+            .certificate-container {
+              border: 4px double #047857;
+              padding: 20px;
+            }
+            button {
+              display: none;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="certificate-container">
+          <div class="certificate-watermark">مُرْتَقَى</div>
+          
+          <div class="header">
+            <h1 class="logo-title">مُرْتَقَى</h1>
+            <div class="subtitle">تَسْمِيعُ وَمُرَاجَعَةُ القُرْآنِ الكَرِيمِ</div>
+          </div>
+
+          <div class="report-title">📝 تقرير مراجعة وتسميع سورة ${surah.name}</div>
+
+          <div class="meta-grid">
+            <div class="meta-item">
+              <span class="meta-label">التاريخ:</span>
+              <span class="meta-value">${today}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">السورة الكريمة:</span>
+              <span class="meta-value">${surah.name} (${surah.revelationType === 'Meccan' ? 'مكية' : 'مدنية'})</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">الزمن المستغرق للتسميع:</span>
+              <span class="meta-value">${timeStr}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">إجمالي عدد الآيات:</span>
+              <span class="meta-value">${surah.numberOfAyahs} آية</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">الآيات التي بها أخطاء:</span>
+              <span class="meta-value" style="color: ${mistakenAyahsList.length > 0 ? '#dc2626' : '#047857'}">
+                ${mistakenAyahsList.length} آية
+              </span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-label">حالة التسميع الكلية:</span>
+              <span class="meta-value" style="color: ${mistakenAyahsList.length === 0 ? '#047857' : '#d97706'}">
+                ${mistakenAyahsList.length === 0 ? 'متقن تماماً ✨' : 'يحتاج إلى تثبيت ومراجعة ⚠️'}
+              </span>
+            </div>
+          </div>
+
+          <div class="section-title"> تفصيل الأخطاء ومواضع التدقيق</div>
+          
+          <div style="position: relative; z-index: 10;">
+            ${ayahsHtml}
+          </div>
+
+          <div class="footer-note">
+            تم توليد هذا التقرير آلياً بواسطة منصة <strong>مُرْتَقَى</strong> لمساعدة حفظة القرآن الكريم.
+            <br>
+            <em>"خَيْرُكُمْ مَنْ تَعَلَّمَ الْقُرْآنَ وَعَلَّمَهُ"</em>
+          </div>
+        </div>
+
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+  };
 
   // History for random mode to support back navigation
   const [randomHistory, setRandomHistory] = useState<number[]>([]);
@@ -256,16 +549,22 @@ export default function RevisionDashboard({
     }
   };
 
-  // Switch between Sequential and Random modes
-  const handleModeChange = (mode: 'sequential' | 'random') => {
+  // Switch between Sequential, Random, and Reciter modes
+  const handleModeChange = (mode: 'sequential' | 'random' | 'reciter') => {
     setSettings((prev) => ({ ...prev, mode }));
     if (mode === 'random') {
       const initialRandIndex = selectRandomIndex();
       setRandomHistory([initialRandIndex]);
       setHistoryPointer(0);
       setCurrentIndex(initialRandIndex);
-    } else {
+    } else if (mode === 'sequential') {
       setCurrentIndex(0);
+    } else if (mode === 'reciter') {
+      setTimeElapsed(0);
+      setIsTimerRunning(true);
+      setIsAuditMode(false);
+      setMistakenAyahs({});
+      setMistakenWords({});
     }
   };
 
@@ -312,71 +611,281 @@ export default function RevisionDashboard({
         </div>
       )}
 
-      {/* Main Flashcard Panel */}
-      <div className="bg-white rounded-3xl p-8 md:p-12 shadow-md border border-emerald-100/60 flex flex-col justify-between min-h-[420px] relative overflow-hidden">
-        
-        {/* Background watermark/art */}
-        <div className="absolute inset-0 bg-[radial-gradient(#047857_0.4px,transparent_0.4px)] [background-size:16px_16px] opacity-[0.03] pointer-events-none" />
-
-        {/* Card Header: Ayah Details & Status Pill */}
-        <div className="flex items-center justify-between relative z-10 border-b border-emerald-50 pb-5 mb-6">
-          <div className="flex items-center gap-2">
-            {currentAyahStatus === 'mastered' && (
-              <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                متقن
+      {/* Reciter Timer & Controls Bar */}
+      {settings.mode === 'reciter' && (
+        <div className="bg-white/90 backdrop-blur-md px-6 py-4 rounded-2xl shadow-sm border border-amber-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+              <Timer className="w-5 h-5 animate-pulse" />
+            </div>
+            <div className="text-right">
+              <span className="block text-[11px] text-slate-500 font-semibold">مؤقت التسميع الجاري</span>
+              <span className="text-base font-bold text-slate-800 font-mono">
+                {Math.floor(timeElapsed / 60).toString().padStart(2, '0')}:{(timeElapsed % 60).toString().padStart(2, '0')}
               </span>
-            )}
-            {currentAyahStatus === 'needs_practice' && (
-              <span className="flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
-                بحاجة لمراجعة
-              </span>
-            )}
-            {currentAyahStatus === 'none' && (
-              <span className="flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-full">
-                غير محدّد
-              </span>
-            )}
+            </div>
           </div>
 
-          <div className="text-right font-mono text-sm text-emerald-800/80 font-bold bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-100/40">
-            الآية {currentAyah.numberInSurah} من {surah.numberOfAyahs}
+          <div className="text-right flex-1 px-4">
+            <span className="block text-[11px] text-emerald-800/60 font-semibold">توجيه التسميع</span>
+            <p className="text-xs font-semibold text-slate-700">
+              {isAuditMode 
+                ? "انقر على الكلمات المحددة التي أخطأت فيها لتلوينها وتصديرها بتقرير الـ PDF."
+                : "اقرأ السورة غيباً، وانقر مرتين (Double Click) على أي آية أخطأت فيها لتسجيلها."
+              }
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!isAuditMode ? (
+              <button
+                onClick={() => {
+                  setIsTimerRunning(false);
+                  setIsAuditMode(true);
+                }}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <ClipboardCheck className="w-4 h-4" />
+                إنهاء وتدقيق الأخطاء
+              </button>
+            ) : (
+              <button
+                onClick={handleExportPDF}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                تصدير PDF بالتقرير
+              </button>
+            )}
           </div>
         </div>
+      )}
 
-        {/* Card Content: Quranic Verses Display */}
-        <div className="flex-1 flex flex-col justify-center items-center text-center space-y-6 my-4 relative z-10">
-          
-          {/* Optional Centered Bismillah Header */}
-          {bismillah && (
-            <motion.div 
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-emerald-800 font-bold text-xl md:text-2xl font-sans tracking-wide leading-loose opacity-80"
-              style={{ fontFamily: "'Amiri', serif" }}
-            >
-              {bismillah}
-            </motion.div>
+      {settings.mode === 'reciter' ? (
+        /* Reciter Panel View */
+        <div className="bg-white rounded-3xl p-6 md:p-10 shadow-md border border-emerald-100/60 space-y-6 relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(#047857_0.4px,transparent_0.4px)] [background-size:16px_16px] opacity-[0.03] pointer-events-none" />
+
+          {isAuditMode ? (
+            <div className="relative z-10 space-y-6 text-right" dir="rtl">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-emerald-50">
+                <div>
+                  <h3 className="text-lg font-bold text-emerald-950">🔍 مرحلة تدقيق الكلمات المحددة</h3>
+                  <p className="text-xs text-slate-500">انقر على الكلمات التي أخطأت فيها لتظليلها باللون الأحمر.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setIsAuditMode(false);
+                      setIsTimerRunning(true);
+                    }}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer"
+                  >
+                    استئناف التسميع
+                  </button>
+                  <button
+                    onClick={handleExportPDF}
+                    className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    تصدير تقرير الأخطاء PDF
+                  </button>
+                </div>
+              </div>
+
+              {Object.keys(mistakenAyahs).filter(num => mistakenAyahs[parseInt(num)]).length === 0 ? (
+                <div className="text-center py-12 space-y-3">
+                  <Award className="w-12 h-12 text-amber-500 mx-auto" />
+                  <h4 className="text-base font-bold text-emerald-950">لم يتم تسجيل أي أخطاء!</h4>
+                  <p className="text-xs text-slate-500 max-w-sm mx-auto">ما شاء الله، لقد أتممت تسميع السورة الكريمة بنجاح ودون أخطاء مسجلة.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {surah.ayahs
+                    .filter(a => mistakenAyahs[a.numberInSurah])
+                    .map((ayah) => {
+                      const cleanText = ayah.text.replace(/[\u064B-\u0652]/g, '').replace(/^(بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ)/, '').trim();
+                      const wordsFromText = cleanText.split(/\s+/);
+                      const originalWords = ayah.text.split(/\s+/);
+                      const actualWordsToUse = originalWords.length === wordsFromText.length ? originalWords : wordsFromText;
+                      
+                      return (
+                        <div key={ayah.number} className="bg-amber-50/40 border border-amber-100 rounded-2xl p-4 space-y-3">
+                          <div className="flex items-center justify-between text-xs text-amber-800 font-semibold border-b border-amber-100/50 pb-2">
+                            <span>الآية {ayah.numberInSurah}</span>
+                            <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full text-[10px]">اضغط على الكلمات الخاطئة لتلوينها</span>
+                          </div>
+                          <div 
+                            className="text-2xl text-slate-850 text-right leading-relaxed font-medium"
+                            style={{ fontFamily: "'Amiri', serif", direction: 'rtl' }}
+                          >
+                            {actualWordsToUse.map((word, wordIdx) => {
+                              const isWordMistaken = mistakenWords[ayah.numberInSurah]?.[wordIdx];
+                              return (
+                                <span
+                                  key={wordIdx}
+                                  onClick={() => {
+                                    setMistakenWords(prev => {
+                                      const ayahWords = prev[ayah.numberInSurah] || {};
+                                      return {
+                                        ...prev,
+                                        [ayah.numberInSurah]: {
+                                          ...ayahWords,
+                                          [wordIdx]: !ayahWords[wordIdx]
+                                        }
+                                      };
+                                    });
+                                  }}
+                                  className={`inline-block px-1 mx-1 rounded cursor-pointer transition-all select-none hover:bg-amber-100 ${
+                                    isWordMistaken
+                                      ? 'text-red-600 bg-red-50 border-b-2 border-red-500 font-bold'
+                                      : 'text-slate-800'
+                                  }`}
+                                >
+                                  {word}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Active Recitation View */
+            <div className="relative z-10 space-y-8 text-right" dir="rtl">
+              <div className="text-center space-y-2 border-b border-emerald-50 pb-4">
+                <span className="text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1 rounded-full">تلاوة وتسميع كامل السورة</span>
+                <p className="text-xs text-slate-500">انقر نقراً مزدوجاً (Double Click) على الآية التي وقعت في خطأ لتسجيلها باللون الأحمر.</p>
+              </div>
+
+              {surah.number !== 1 && surah.number !== 9 && (
+                <div 
+                  className="text-emerald-800 font-bold text-2xl text-center font-sans tracking-wide leading-loose opacity-80"
+                  style={{ fontFamily: "'Amiri', serif" }}
+                >
+                  بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
+                </div>
+              )}
+
+              <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar text-right">
+                {surah.ayahs.map((ayah) => {
+                  const isMarkedMistake = !!mistakenAyahs[ayah.numberInSurah];
+                  
+                  return (
+                    <div
+                      key={ayah.number}
+                      onDoubleClick={() => {
+                        setMistakenAyahs(prev => ({
+                          ...prev,
+                          [ayah.numberInSurah]: !prev[ayah.numberInSurah]
+                        }));
+                      }}
+                      className={`group p-4 rounded-2xl border transition-all duration-300 select-none cursor-pointer text-right ${
+                        isMarkedMistake
+                          ? 'bg-red-50/80 border-red-200 hover:bg-red-50 shadow-sm'
+                          : 'bg-[#fdfdfa] hover:bg-emerald-50/30 border-emerald-100/40 hover:border-emerald-100/80'
+                      }`}
+                      title="انقر مرتين لتسجيل خطأ في هذه الآية"
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-100 flex items-center justify-center text-[10px] font-bold font-mono">
+                            {ayah.numberInSurah}
+                          </span>
+                          {isMarkedMistake && (
+                            <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                              ⚠️ تم تسجيل خطأ (انقر مرتين للإلغاء)
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                          انقر نقراً مزدوجاً لتحديد خطأ
+                        </span>
+                      </div>
+                      <p 
+                        className={`text-2xl leading-relaxed font-medium transition-colors text-right ${
+                          isMarkedMistake ? 'text-red-950 font-semibold' : 'text-slate-800'
+                        }`}
+                        style={{ fontFamily: "'Amiri', serif" }}
+                      >
+                        {ayah.text}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           )}
+        </div>
+      ) : (
+        /* Main Flashcard Panel */
+        <div className="bg-white rounded-3xl p-8 md:p-12 shadow-md border border-emerald-100/60 flex flex-col justify-between min-h-[420px] relative overflow-hidden">
+          
+          {/* Background watermark/art */}
+          <div className="absolute inset-0 bg-[radial-gradient(#047857_0.4px,transparent_0.4px)] [background-size:16px_16px] opacity-[0.03] pointer-events-none" />
 
-          {/* Core Ayah Text */}
-          <div className="w-full space-y-8 select-none">
+          {/* Card Header: Ayah Details & Status Pill */}
+          <div className="flex items-center justify-between relative z-10 border-b border-emerald-50 pb-5 mb-6">
+            <div className="flex items-center gap-2">
+              {currentAyahStatus === 'mastered' && (
+                <span className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  متقن
+                </span>
+              )}
+              {currentAyahStatus === 'needs_practice' && (
+                <span className="flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                  بحاجة لمراجعة
+                </span>
+              )}
+              {currentAyahStatus === 'none' && (
+                <span className="flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-50 border border-slate-100 px-3 py-1 rounded-full">
+                  غير محدّد
+                </span>
+              )}
+            </div>
+
+            <div className="text-right font-mono text-sm text-emerald-800/80 font-bold bg-emerald-50 px-3 py-1 rounded-xl border border-emerald-100/40">
+              الآية {currentAyah.numberInSurah} من {surah.numberOfAyahs}
+            </div>
+          </div>
+
+          {/* Card Content: Quranic Verses Display */}
+          <div className="flex-1 flex flex-col justify-center items-center text-center space-y-6 my-4 relative z-10">
             
-            {/* The Prompt / Beginning of Verse */}
-            <div 
-              className="text-3xl md:text-4xl text-emerald-950 tracking-wide font-medium text-center px-4"
-              style={{ fontFamily: "'Amiri', serif", direction: 'rtl', lineHeight: '2.5' }}
-            >
-              {/* Highlight starting words */}
-              <span className="text-emerald-800 font-bold drop-shadow-[0_1px_1px_rgba(4,120,87,0.05)] border-b-2 border-emerald-200 pb-1 me-2 inline-block">
-                {startingWords.head}
-              </span>
+            {/* Optional Centered Bismillah Header */}
+            {bismillah && (
+              <motion.div 
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-emerald-800 font-bold text-xl md:text-2xl font-sans tracking-wide leading-loose opacity-80"
+                style={{ fontFamily: "'Amiri', serif" }}
+              >
+                {bismillah}
+              </motion.div>
+            )}
+
+            {/* Core Ayah Text */}
+            <div className="w-full space-y-8 select-none">
               
-              {/* Blur/Hide remaining words unless revealed */}
-              <AnimatePresence mode="wait">
-                {revealed ? (
-                  <motion.span
+              {/* The Prompt / Beginning of Verse */}
+              <div 
+                className="text-3xl md:text-4xl text-emerald-950 tracking-wide font-medium text-center px-4"
+                style={{ fontFamily: "'Amiri', serif", direction: 'rtl', lineHeight: '2.5' }}
+              >
+                {/* Highlight starting words */}
+                <span className="text-emerald-800 font-bold drop-shadow-[0_1px_1px_rgba(4,120,87,0.05)] border-b-2 border-emerald-200 pb-1 me-2 inline-block">
+                  {startingWords.head}
+                </span>
+                
+                {/* Blur/Hide remaining words unless revealed */}
+                <AnimatePresence mode="wait">
+                  {revealed ? (
+                    <motion.span
                     initial={{ opacity: 0, filter: 'blur(8px)' }}
                     animate={{ opacity: 1, filter: 'blur(0px)' }}
                     exit={{ opacity: 0 }}
@@ -600,16 +1109,19 @@ export default function RevisionDashboard({
         </div>
 
       </div>
+      )}
 
       {/* Keyboard hints */}
-      <div className="hidden md:flex justify-center items-center gap-6 text-[11px] text-emerald-800/50 font-medium font-sans">
-        <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">Space</kbd> كشف/إخفاء</span>
-        <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">→</kbd> الآية التالية</span>
-        <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">←</kbd> الآية السابقة</span>
-        <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">M</kbd> إتقان</span>
-        <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">R</kbd> مراجعة</span>
-        <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">P</kbd> تشغيل التلاوة</span>
-      </div>
+      {settings.mode !== 'reciter' && (
+        <div className="hidden md:flex justify-center items-center gap-6 text-[11px] text-emerald-800/50 font-medium font-sans">
+          <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">Space</kbd> كشف/إخفاء</span>
+          <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">→</kbd> الآية التالية</span>
+          <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">←</kbd> الآية السابقة</span>
+          <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">M</kbd> إتقان</span>
+          <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">R</kbd> مراجعة</span>
+          <span><kbd className="bg-white px-2 py-0.5 border border-emerald-100 rounded shadow-sm text-xs font-mono">P</kbd> تشغيل التلاوة</span>
+        </div>
+      )}
 
       {/* Settings Dialog Backdrop */}
       <AnimatePresence>
@@ -662,26 +1174,36 @@ export default function RevisionDashboard({
               {/* Setting: Test Mode */}
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-emerald-950 block">طريقة المراجعة</label>
-                <div className="flex bg-emerald-50 p-1 rounded-xl border border-emerald-100">
+                <div className="grid grid-cols-3 bg-emerald-50 p-1 rounded-xl border border-emerald-100 gap-1">
                   <button
                     onClick={() => handleModeChange('sequential')}
-                    className={`flex-1 text-center py-2.5 text-xs font-bold rounded-lg transition-all ${
+                    className={`text-center py-2 text-[10px] font-bold rounded-lg transition-all ${
                       settings.mode === 'sequential'
                         ? 'bg-emerald-700 text-white shadow-sm'
                         : 'text-emerald-800 hover:bg-emerald-100/40'
                     }`}
                   >
-                    مراجعة متسلسلة (آية بآية)
+                    متسلسلة
                   </button>
                   <button
                     onClick={() => handleModeChange('random')}
-                    className={`flex-1 text-center py-2.5 text-xs font-bold rounded-lg transition-all ${
+                    className={`text-center py-2 text-[10px] font-bold rounded-lg transition-all ${
                       settings.mode === 'random'
                         ? 'bg-emerald-700 text-white shadow-sm'
                         : 'text-emerald-800 hover:bg-emerald-100/40'
                     }`}
                   >
-                    اختبار عشوائي بالسور
+                    عشوائي
+                  </button>
+                  <button
+                    onClick={() => handleModeChange('reciter')}
+                    className={`text-center py-2 text-[10px] font-bold rounded-lg transition-all ${
+                      settings.mode === 'reciter'
+                        ? 'bg-emerald-700 text-white shadow-sm'
+                        : 'text-emerald-800 hover:bg-emerald-100/40'
+                    }`}
+                  >
+                    المُسَمِّع
                   </button>
                 </div>
               </div>
